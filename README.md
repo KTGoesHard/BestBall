@@ -7,6 +7,7 @@ A lightweight JavaScript helper that suggests best-ball draft picks while adding
 - Exposure-aware penalties so you can cap how often you draft any player.
 - Optional deterministic seeding so identical scenarios produce identical scores, with Gaussian noise for slight pick-to-pick variation.
 - Snake-draft aware pick math with configurable team counts and draft slot.
+- Single-page snake draft assistant (examples/snake_draft.html) with CSV/JSON import, snake board, pick logging, and Monte Carlo Win% sims.
 - Simple API with a reference demo.
 
 ## Installation
@@ -58,6 +59,15 @@ console.log(recommendations.slice(0, 5));
 - `randomness.stdev`: increase for more variety (0.02–0.05 is typical), or set `enabled: false` for deterministic scores.
 - `randomness.seed`: provide when you want reproducible randomness during sims.
 - `leagueConfig`: set `teams`, `rounds`, `draftSlot`, and `snake` to mirror your draft room defaults.
+
+## Snake draft assistant (browser)
+Open `examples/snake_draft.html` in a browser for a single-page tool that mirrors the mini best ball workflow:
+- Configure teams (1–12), rounds (4–12), and your slot; reset clears the saved state.
+- Import players from CSV/JSON via file, drag & drop, or paste; auto-detects columns with editable mapping and normalizes positions (QB/RB/WR/TE only).
+- Autosaves the board, picks, and pool to `localStorage` so reopening reloads your draft room.
+- Renders a snake draft board, remaining ADP list (top 160), pick logging buttons, undo, and recent log.
+- Monte Carlo “Win% — current pick” with knobs for sims, shortlist size, variance, QB weight, ADP gate, and minimum round for QB2.
+- “Final Win% — all teams” sim that autofills each team to 7 players (mini roster) and reports win chances.
 
 ## Running the demo
 ```

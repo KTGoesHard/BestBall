@@ -19,6 +19,7 @@ const advisor = new BestBallTool(players, {
 const roster = { QB: 0, RB: 1, WR: 1, TE: 0 };
 const takenPlayers = ['Christian McCaffrey'];
 const draftState = { round: 2, draftSlot: 4, teams: 12, roster, takenPlayers };
+const draftState = { pickNumber: 10, roster, takenPlayers };
 
 const exposures = { 'patrick-mahomes-qb': 3, 'ja-marr-chase-wr': 4 };
 const draftContext = { exposures, totalDrafts: 10 };
