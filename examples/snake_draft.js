@@ -1,5 +1,8 @@
 (() => {
   const STORAGE_KEY = 'snake_min_v1';
+  const UI_VERSION = 2;
+  const LAYOUT_MIN_WIDTH = 260;
+  const LAYOUT_MIN_HEIGHT = 220;
   const MAX_PER_TEAM = 7;
   const STARTERS_TEMPLATE = { QB: 1, RB: 1, WRTE: 2, FLEX: 2 };
   const LEARNING_MAX_DRAFTS = 50;
@@ -20,11 +23,193 @@
   const elements = {};
   const state = loadState();
   ensureLearningState();
+  ensureUiState();
 
   function ensureLearningState() {
     state.learning = state.learning || {};
     state.learning.playerRatings = state.learning.playerRatings || {};
     state.learning.drafts = state.learning.drafts || [];
+  }
+
+  function setupTabs() {
+    if (!elements.tabButtons || !elements.tabPanels) return;
+    elements.tabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    });
+    activateTab(state.ui.activeTab || 'board-tab', { skipSave: true });
+  }
+
+  function activateTab(tabId, opts = {}) {
+    if (!elements.tabButtons || !elements.tabPanels) return;
+    elements.tabButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    elements.tabPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.id === tabId);
+    });
+    state.ui.activeTab = tabId;
+    if (!opts.skipSave) saveState();
+  }
+
+  function setupFreeform() {
+    if (!elements.freeformToggle) return;
+    elements.freeformToggle.checked = state.ui.freeform;
+    elements.freeformToggle.addEventListener('change', () => toggleFreeform(elements.freeformToggle.checked));
+    toggleFreeform(state.ui.freeform);
+  }
+
+  function toggleFreeform(enabled) {
+    state.ui.freeform = enabled;
+    document.body.classList.toggle('freeform-mode', enabled);
+    if (enabled) {
+      enableFloatingLayout();
+    } else {
+      disableFloatingLayout();
+    }
+    saveState();
+  }
+
+  function ensureHandles(panel) {
+    if (!panel.querySelector('.drag-handle')) {
+      const drag = document.createElement('div');
+      drag.className = 'drag-handle';
+      panel.appendChild(drag);
+    }
+    if (!panel.querySelector('.resize-handle')) {
+      const resize = document.createElement('div');
+      resize.className = 'resize-handle';
+      panel.appendChild(resize);
+    }
+  }
+
+  function enableFloatingLayout() {
+    elements.tabPanels.forEach((tabPanel) => {
+      const canvas = tabPanel.querySelector('.workspace-grid');
+      if (!canvas) return;
+      const panels = Array.from(canvas.querySelectorAll('[data-floating]'));
+      panels.forEach((panel, idx) => {
+        ensureHandles(panel);
+        const key = panel.id || `${tabPanel.id}-panel-${idx}`;
+        panel.dataset.floatingKey = key;
+        applySavedLayout(panel, canvas, tabPanel.id, key);
+        attachDrag(panel, canvas, tabPanel.id, key);
+        attachResize(panel, canvas, tabPanel.id, key);
+      });
+    });
+  }
+
+  function disableFloatingLayout() {
+    elements.tabPanels.forEach((tabPanel) => {
+      const panels = tabPanel.querySelectorAll('[data-floating]');
+      panels.forEach((panel) => {
+        panel.style.position = '';
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.width = '';
+        panel.style.height = '';
+        panel.classList.remove('floating-active');
+      });
+    });
+  }
+
+  function applySavedLayout(panel, canvas, tabId, key) {
+    const canvasRect = canvas.getBoundingClientRect();
+    const rect = panel.getBoundingClientRect();
+    const saved = (state.ui.layout?.[tabId] || {})[key];
+    const left = clamp(saved?.left ?? rect.left - canvasRect.left, 0, Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH));
+    const top = clamp(saved?.top ?? rect.top - canvasRect.top, 0, Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT));
+    const width = clamp(saved?.width ?? rect.width, LAYOUT_MIN_WIDTH, canvasRect.width - left);
+    const height = clamp(saved?.height ?? rect.height, LAYOUT_MIN_HEIGHT, canvasRect.height - top);
+    panel.style.position = 'absolute';
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.width = `${width}px`;
+    panel.style.height = `${height}px`;
+  }
+
+  function attachDrag(panel, canvas, tabId, key) {
+    if (panel.dataset.dragBound) return;
+    const handle = panel.querySelector('.drag-handle');
+    if (!handle) return;
+    handle.addEventListener('mousedown', (e) => {
+      if (!document.body.classList.contains('freeform-mode')) return;
+      e.preventDefault();
+      const canvasRect = canvas.getBoundingClientRect();
+      const rect = panel.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      panel.classList.add('floating-active');
+      function onMove(ev) {
+        const left = clamp(ev.clientX - canvasRect.left - offsetX, 0, Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH));
+        const top = clamp(ev.clientY - canvasRect.top - offsetY, 0, Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT));
+        panel.style.left = `${left}px`;
+        panel.style.top = `${top}px`;
+      }
+      function onUp() {
+        panel.classList.remove('floating-active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        persistLayout(tabId, key, panel);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    panel.dataset.dragBound = '1';
+  }
+
+  function attachResize(panel, canvas, tabId, key) {
+    if (panel.dataset.resizeBound) return;
+    const handle = panel.querySelector('.resize-handle');
+    if (!handle) return;
+    handle.addEventListener('mousedown', (e) => {
+      if (!document.body.classList.contains('freeform-mode')) return;
+      e.preventDefault();
+      const canvasRect = canvas.getBoundingClientRect();
+      const startWidth = panel.getBoundingClientRect().width;
+      const startHeight = panel.getBoundingClientRect().height;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      panel.classList.add('floating-active');
+      function onMove(ev) {
+        const deltaX = ev.clientX - startX;
+        const deltaY = ev.clientY - startY;
+        const left = parseFloat(panel.style.left) || 0;
+        const top = parseFloat(panel.style.top) || 0;
+        const width = clamp(startWidth + deltaX, LAYOUT_MIN_WIDTH, canvasRect.width - left);
+        const height = clamp(startHeight + deltaY, LAYOUT_MIN_HEIGHT, canvasRect.height - top);
+        panel.style.width = `${width}px`;
+        panel.style.height = `${height}px`;
+      }
+      function onUp() {
+        panel.classList.remove('floating-active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        persistLayout(tabId, key, panel);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    panel.dataset.resizeBound = '1';
+  }
+
+  function persistLayout(tabId, key, panel) {
+    state.ui.layout[tabId] = state.ui.layout[tabId] || {};
+    state.ui.layout[tabId][key] = {
+      left: parseFloat(panel.style.left) || 0,
+      top: parseFloat(panel.style.top) || 0,
+      width: parseFloat(panel.style.width) || panel.getBoundingClientRect().width,
+      height: parseFloat(panel.style.height) || panel.getBoundingClientRect().height,
+    };
+    saveState();
+  }
+
+  function ensureUiState() {
+    state.ui = state.ui || {};
+    const migrated = !state.ui.version || state.ui.version < UI_VERSION;
+    state.ui.activeTab = state.ui.activeTab || 'board-tab';
+    state.ui.freeform = migrated ? false : Boolean(state.ui.freeform);
+    state.ui.layout = migrated ? {} : state.ui.layout || {};
+    state.ui.version = UI_VERSION;
   }
 
   function defaultLearning() {
@@ -44,6 +229,7 @@
       pool: [],
       mapping: null,
       learning: defaultLearning(),
+      ui: { activeTab: 'board-tab', freeform: false, layout: {}, version: UI_VERSION },
     };
   }
 
@@ -581,6 +767,7 @@
         pool: [],
         mapping: null,
         learning: defaultLearning(),
+        ui: { activeTab: 'board-tab', freeform: false, layout: {}, version: UI_VERSION },
       });
       elements.pasteBox.value = '';
       normalizeSettings();
@@ -641,6 +828,9 @@
       elements.finalTable.innerHTML = '';
       elements.finalStatus.textContent = 'Cleared results.';
     });
+
+    setupTabs();
+    setupFreeform();
   }
 
   function loadElements() {
@@ -680,6 +870,9 @@
     elements.finalTable = document.getElementById('final-table');
     elements.runFinal = document.getElementById('run-final');
     elements.clearFinal = document.getElementById('clear-final');
+    elements.freeformToggle = document.getElementById('freeform-toggle');
+    elements.tabButtons = Array.from(document.querySelectorAll('.tabbar .tab'));
+    elements.tabPanels = Array.from(document.querySelectorAll('[data-tab-panel]'));
   }
 
   function loadSavedInputs() {

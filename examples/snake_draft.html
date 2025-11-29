@@ -74,100 +74,130 @@
         </div>
       </section>
 
-      <section class="right-rail">
-        <div class="right-grid">
-          <div class="panel" id="board-panel">
-            <div class="panel-head">
-              <h2>Draft Board</h2>
-              <div class="status" id="board-status"></div>
-            </div>
-            <div class="table-scroll" id="board-table"></div>
+      <section class="workspace">
+        <div class="workspace-head panel">
+          <div>
+            <h2>Workspace</h2>
+            <div class="subtle">Tabbed view keeps things tidy; freeform lets you drag + resize.</div>
+            <div class="status" id="save-status">State autosaves to your browser.</div>
           </div>
-          <div class="panel" id="log-panel">
-            <div class="panel-head">
-              <h2>Log Picks</h2>
-              <div class="subtle">Type or pick from the list</div>
-            </div>
-            <div class="stack">
-              <label for="log-name">Name</label>
-              <div class="flex-row">
-                <input id="log-name" placeholder="Start typing a player" list="log-name-options" />
-                <button id="log-btn">Log Pick</button>
-              </div>
-              <datalist id="log-name-options"></datalist>
-            </div>
-            <div class="flex-row">
-              <button id="undo-btn" class="secondary">Undo Last</button>
-            </div>
-            <div class="small" id="ml-status">Machine learning: waiting for Final Win% to learn from drafts.</div>
-            <div class="recent">
-              <div class="section-label">Recent</div>
-              <ul id="recent-log"></ul>
-            </div>
+          <div class="workspace-toggles">
+            <label class="toggle">
+              <input type="checkbox" id="freeform-toggle" />
+              <span>Freeform (drag + resize panels)</span>
+            </label>
           </div>
         </div>
 
-        <div class="sim-grid">
-          <div class="panel">
-            <div class="panel-head">
-              <h2>Win% — Current Pick</h2>
-              <div class="subtle">EVG sims + shortlist controls</div>
+        <div class="tabbar" role="tablist">
+          <button class="tab active" data-tab="board-tab">Board & Log</button>
+          <button class="tab" data-tab="mc-tab">Win% Sims</button>
+          <button class="tab" data-tab="final-tab">Final Standings</button>
+        </div>
+
+        <div class="tab-panels">
+          <div class="tab-panel active" id="board-tab" data-tab-panel>
+            <div class="workspace-grid two-column">
+              <div class="panel" id="board-panel" data-floating>
+                <div class="panel-head">
+                  <h2>Draft Board</h2>
+                  <div class="status" id="board-status"></div>
+                </div>
+                <div class="table-scroll" id="board-table"></div>
+              </div>
+              <div class="panel" id="log-panel" data-floating>
+                <div class="panel-head">
+                  <h2>Log Picks</h2>
+                  <div class="subtle">Type or pick from the list</div>
+                </div>
+                <div class="stack">
+                  <label for="log-name">Name</label>
+                  <div class="flex-row">
+                    <input id="log-name" placeholder="Start typing a player" list="log-name-options" />
+                    <button id="log-btn">Log Pick</button>
+                  </div>
+                  <datalist id="log-name-options"></datalist>
+                </div>
+                <div class="flex-row">
+                  <button id="undo-btn" class="secondary">Undo Last</button>
+                </div>
+                <div class="small" id="ml-status">Machine learning: waiting for Final Win% to learn from drafts.</div>
+                <div class="recent">
+                  <div class="section-label">Recent</div>
+                  <ul id="recent-log"></ul>
+                </div>
+              </div>
             </div>
-            <div class="grid-3">
-              <div>
-                <label for="mc-sims">EVG sims</label>
-                <input type="number" id="mc-sims" value="800" min="50" max="20000" />
-              </div>
-              <div>
-                <label for="mc-top">Top candidates</label>
-                <input type="number" id="mc-top" value="8" min="1" max="20" />
-              </div>
-              <div>
-                <label for="mc-var">Variance</label>
-                <div class="checkbox-row"><input type="checkbox" id="mc-var" checked /> enable</div>
-              </div>
-              <div>
-                <label for="qb-weight">QB weight</label>
-                <input type="number" id="qb-weight" value="0.85" min="0.5" max="1" step="0.05" />
-              </div>
-              <div>
-                <label for="adp-gate">ADP gate (picks)</label>
-                <input type="number" id="adp-gate" value="16" min="0" max="40" />
-              </div>
-              <div>
-                <label for="qb2-round">Min round for QB2</label>
-                <input type="number" id="qb2-round" value="6" min="1" max="18" />
-              </div>
-            </div>
-            <div class="button-row">
-              <button id="run-mc">Run Win% Now</button>
-              <button id="clear-mc" class="secondary">Clear results</button>
-            </div>
-            <div class="status" id="mc-status">Awaiting pool + draft state.</div>
-            <div class="table-scroll" id="mc-table"></div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h2>Final Win% — All Teams</h2>
-              <div class="subtle">EVG sims per roster</div>
-            </div>
-            <div class="grid-2">
-              <div>
-                <label for="final-sims">EVG sims</label>
-                <input type="number" id="final-sims" value="2000" min="100" max="50000" />
+          <div class="tab-panel" id="mc-tab" data-tab-panel>
+            <div class="workspace-grid">
+              <div class="panel" data-floating>
+                <div class="panel-head">
+                  <h2>Win% — Current Pick</h2>
+                  <div class="subtle">EVG sims + shortlist controls</div>
+                </div>
+                <div class="grid-3">
+                  <div>
+                    <label for="mc-sims">EVG sims</label>
+                    <input type="number" id="mc-sims" value="800" min="50" max="20000" />
+                  </div>
+                  <div>
+                    <label for="mc-top">Top candidates</label>
+                    <input type="number" id="mc-top" value="8" min="1" max="20" />
+                  </div>
+                  <div>
+                    <label for="mc-var">Variance</label>
+                    <div class="checkbox-row"><input type="checkbox" id="mc-var" checked /> enable</div>
+                  </div>
+                  <div>
+                    <label for="qb-weight">QB weight</label>
+                    <input type="number" id="qb-weight" value="0.85" min="0.5" max="1" step="0.05" />
+                  </div>
+                  <div>
+                    <label for="adp-gate">ADP gate (picks)</label>
+                    <input type="number" id="adp-gate" value="16" min="0" max="40" />
+                  </div>
+                  <div>
+                    <label for="qb2-round">Min round for QB2</label>
+                    <input type="number" id="qb2-round" value="6" min="1" max="18" />
+                  </div>
+                </div>
+                <div class="button-row">
+                  <button id="run-mc">Run Win% Now</button>
+                  <button id="clear-mc" class="secondary">Clear results</button>
+                </div>
+                <div class="status" id="mc-status">Awaiting pool + draft state.</div>
+                <div class="table-scroll" id="mc-table"></div>
               </div>
-              <div>
-                <label for="final-var">Variance</label>
-                <div class="checkbox-row"><input type="checkbox" id="final-var" checked /> enable</div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="final-tab" data-tab-panel>
+            <div class="workspace-grid">
+              <div class="panel" data-floating>
+                <div class="panel-head">
+                  <h2>Final Win% — All Teams</h2>
+                  <div class="subtle">EVG sims per roster</div>
+                </div>
+                <div class="grid-2">
+                  <div>
+                    <label for="final-sims">EVG sims</label>
+                    <input type="number" id="final-sims" value="2000" min="100" max="50000" />
+                  </div>
+                  <div>
+                    <label for="final-var">Variance</label>
+                    <div class="checkbox-row"><input type="checkbox" id="final-var" checked /> enable</div>
+                  </div>
+                </div>
+                <div class="button-row">
+                  <button id="run-final">Run Final Win%</button>
+                  <button id="clear-final" class="secondary">Clear results</button>
+                </div>
+                <div class="status" id="final-status">Awaiting pool + picks.</div>
+                <div class="table-scroll" id="final-table"></div>
               </div>
             </div>
-            <div class="button-row">
-              <button id="run-final">Run Final Win%</button>
-              <button id="clear-final" class="secondary">Clear results</button>
-            </div>
-            <div class="status" id="final-status">Awaiting pool + picks.</div>
-            <div class="table-scroll" id="final-table"></div>
           </div>
         </div>
       </section>

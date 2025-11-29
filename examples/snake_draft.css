@@ -63,30 +63,109 @@ h1 {
 
 .page-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 18px;
   padding: 16px 18px 24px;
   align-items: start;
 }
 
-.left-rail,
-.right-rail {
+.left-rail {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   align-self: start;
 }
 
-.right-grid {
+.workspace {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
-  gap: 16px;
+  gap: 12px;
+  align-self: start;
+}
+
+.workspace-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.workspace-toggles {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0f1322;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.toggle input {
+  width: 16px;
+  height: 16px;
+}
+
+.tabbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: sticky;
+  top: 76px;
+  z-index: 1;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tab.active {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  box-shadow: 0 10px 30px rgba(127, 140, 255, 0.22);
+}
+
+.tab-panels {
+  display: grid;
+  gap: 12px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
   align-items: start;
 }
 
-.sim-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+.workspace-grid.two-column {
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
 }
 
 .panel {
@@ -350,6 +429,66 @@ tbody tr:nth-child(even) {
   justify-content: flex-end;
 }
 
+.panel[data-floating] {
+  position: relative;
+}
+
+.drag-handle {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: move;
+  display: none;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: rgba(127, 140, 255, 0.15);
+  cursor: se-resize;
+  display: none;
+}
+
+.freeform-mode .drag-handle,
+.freeform-mode .resize-handle {
+  display: block;
+}
+
+.freeform-mode .workspace-grid {
+  display: block;
+  position: relative;
+  min-height: 900px;
+  padding: 6px;
+}
+
+.freeform-mode .tab-panel {
+  display: block;
+}
+
+.freeform-mode .tabbar {
+  position: sticky;
+  top: 12px;
+}
+
+.freeform-mode .panel[data-floating] {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.38);
+  border-color: rgba(127, 140, 255, 0.35);
+}
+
+.floating-active {
+  outline: 1px dashed var(--accent);
+}
+
 input[type="checkbox"] {
   accent-color: var(--accent);
 }
@@ -358,10 +497,11 @@ input[type="checkbox"] {
   .page-grid {
     grid-template-columns: 1fr;
   }
-  .right-grid {
-    grid-template-columns: 1fr;
+  .workspace-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
-  .sim-grid {
+  .workspace-grid.two-column {
     grid-template-columns: 1fr;
   }
 }

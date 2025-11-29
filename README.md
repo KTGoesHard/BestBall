@@ -64,7 +64,8 @@ console.log(recommendations.slice(0, 5));
 Open `examples/snake_draft.html` in a browser for a single-page tool that mirrors the mini best ball workflow:
 - Configure teams (1–12), rounds (4–12), and your slot; reset clears the saved state. The header stays sticky so controls remain visible while scrolling.
 - Import players from CSV/JSON via file, drag & drop, or paste; auto-detects columns with editable mapping and normalizes positions (QB/RB/WR/TE only). The importer now understands richer DraftKings-style columns (e.g., `player`, `team`, `pos`, `DK_PPG_mu`, `DK_PPG_anchor`, stat-level `RecYds_mu`/`RecYds_sd`, etc.) and will derive PPG/SD when direct columns are absent.
-- Redesigned layout that mirrors the reference UI: a left rail for DK-aware imports and the remaining board, and a right rail with a highlighted draft board/status, compact log-pick card, and side-by-side simulation cards.
+- Redesigned layout that mirrors the reference UI: a left rail for DK-aware imports and the remaining board, and a right rail that now lives inside a tabbed workspace (Board & Log / Win% Sims / Final Standings).
+- Optional freeform mode lets you drag and resize panels (with saved positions per tab) to build your own drafting cockpit without overlap. Freeform is opt-in; upgrades migrate everyone back to the tidy tabbed layout so previews never open in an overlapped state—flip the toggle to re-enable and your new layout will persist.
 - Autosaves the board, picks, and pool to `localStorage` so reopening reloads your draft room.
 - Renders a snake draft board, remaining ADP list (top 160), pick logging buttons, undo, and recent log. The log input now autocompletes against every loaded player name, so you can type a few letters and select the player instead of retyping full names.
 - Monte Carlo “Win% — current pick” with knobs for sims, shortlist size, variance, QB weight, ADP gate, and minimum round for QB2.
