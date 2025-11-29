@@ -63,11 +63,15 @@ console.log(recommendations.slice(0, 5));
 ## Snake draft assistant (browser)
 Open `examples/snake_draft.html` in a browser for a single-page tool that mirrors the mini best ball workflow:
 - Configure teams (1–12), rounds (4–12), and your slot; reset clears the saved state.
-- Import players from CSV/JSON via file, drag & drop, or paste; auto-detects columns with editable mapping and normalizes positions (QB/RB/WR/TE only).
+- Import players from CSV/JSON via file, drag & drop, or paste; auto-detects columns with editable mapping and normalizes positions (QB/RB/WR/TE only). The importer now understands richer DraftKings-style columns (e.g., `player`, `team`, `pos`, `DK_PPG_mu`, `DK_PPG_anchor`, stat-level `RecYds_mu`/`RecYds_sd`, etc.) and will derive PPG/SD when direct columns are absent.
 - Autosaves the board, picks, and pool to `localStorage` so reopening reloads your draft room.
 - Renders a snake draft board, remaining ADP list (top 160), pick logging buttons, undo, and recent log.
 - Monte Carlo “Win% — current pick” with knobs for sims, shortlist size, variance, QB weight, ADP gate, and minimum round for QB2.
 - “Final Win% — all teams” sim that autofills each team to 7 players (mini roster) and reports win chances.
+
+### CSV/JSON import details
+- Column auto-detection now checks `DK_PPG_mu`, `DK_PPG_anchor`, `dk_ppg` variants, and `dk_ppg_sd` / `dk_pts_sd` when present.
+- If no explicit PPG/SD columns exist, the tool derives them using the provided stat means/sds with DraftKings scoring weights (Receptions 1, Rec/Rush yards 0.1 per yard, Rec/Rush TD 6, Pass yards 0.04, Pass TD 4, INT −1) so richer data like the sample excerpt above produces accurate variance-aware sims.
 
 ## Running the demo
 ```

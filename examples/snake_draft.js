@@ -258,8 +258,8 @@
       team: find(['team', 'tm']),
       adp: find(['adp', 'avgpick']),
       bye: find(['byeweek', 'bye', 'bye_week']),
-      ppg: find(['dk_ppg', 'ppg', 'projection', 'points', 'fpts']),
-      sd: find(['dk_pts_sd', 'sigma', 'stdev', 'std', 'sd']),
+      ppg: find(['dk_ppg', 'dk_ppg_mu', 'dk_ppg_anchor', 'ppg', 'projection', 'points', 'fpts']),
+      sd: find(['dk_pts_sd', 'dk_ppg_sd', 'sigma', 'stdev', 'std', 'sd']),
     };
   }
 
@@ -308,8 +308,9 @@
     let skippedBlank = 0;
     let skippedPos = 0;
     rows.forEach((row) => {
-      const name = (row[mapping.name] || '').trim();
-      const posRaw = (row[mapping.position] || '').trim();
+      const lowerRow = lowerKeys(row);
+      const name = ((mapping.name && row[mapping.name]) || lowerRow.player || lowerRow.name || '').trim();
+      const posRaw = ((mapping.position && row[mapping.position]) || lowerRow.pos || lowerRow.position || '').trim();
       if (!name) {
         skippedBlank += 1;
         return;
@@ -322,20 +323,81 @@
       const key = name.toLowerCase();
       if (seenNames.has(key)) return;
       seenNames.add(key);
+
       const player = {
         name,
         position: posNorm,
-        team: (row[mapping.team] || '').trim(),
-        adp: toNumber(row[mapping.adp]),
-        bye: toNumber(row[mapping.bye]),
-        ppg: roundNumber(row[mapping.ppg]),
-        sd: roundNumber(row[mapping.sd]),
+        team: ((mapping.team && row[mapping.team]) || lowerRow.team || '').trim(),
+        adp: firstNumber(lowerRow, [mapping.adp, 'adp', 'avgpick']),
+        bye: firstNumber(lowerRow, [mapping.bye, 'bye', 'byeweek', 'bye_week']),
       };
+
+      player.ppg = derivePPG(row, lowerRow, mapping);
+      player.sd = deriveSD(row, lowerRow, mapping);
+
       pool.push(player);
     });
     state.pool = pool;
     elements.importStatus.textContent = `Applied ${pool.length} players. Skipped ${skippedBlank} blank names, ${skippedPos} bad positions.`;
     render();
+  }
+
+  function lowerKeys(obj) {
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v]));
+  }
+
+  function firstNumber(lowerRow, keys) {
+    for (const key of keys) {
+      if (!key) continue;
+      const num = toNumber(lowerRow[key.toLowerCase ? key.toLowerCase() : key]);
+      if (Number.isFinite(num)) return num;
+    }
+    return undefined;
+  }
+
+  function derivePPG(row, lowerRow, mapping) {
+    const ppgDirect = roundNumber(firstNumber(lowerRow, [mapping.ppg, 'dk_ppg_mu', 'dk_ppg_anchor', 'dk_ppg', 'ppg', 'projection', 'fpts', 'points']));
+    if (Number.isFinite(ppgDirect)) return ppgDirect;
+
+    const weights = {
+      receptions_mu: 1,
+      recyds_mu: 0.1,
+      rectd_mu: 6,
+      rushyds_mu: 0.1,
+      rushtd_mu: 6,
+      passyds_mu: 1 / 25,
+      passtd_mu: 4,
+      int_mu: -1,
+    };
+    const score = Object.entries(weights).reduce((sum, [key, weight]) => {
+      const val = toNumber(lowerRow[key]);
+      return Number.isFinite(val) ? sum + val * weight : sum;
+    }, 0);
+    return Number.isFinite(score) && score !== 0 ? roundNumber(score) : undefined;
+  }
+
+  function deriveSD(row, lowerRow, mapping) {
+    const sdDirect = roundNumber(firstNumber(lowerRow, [mapping.sd, 'dk_ppg_sd', 'dk_pts_sd', 'dk_sd', 'sigma', 'stdev', 'std', 'sd']));
+    if (Number.isFinite(sdDirect)) return sdDirect;
+
+    const weights = {
+      receptions_sd: 1,
+      recyds_sd: 0.1,
+      rectd_sd: 6,
+      rushyds_sd: 0.1,
+      rushtd_sd: 6,
+      passyds_sd: 1 / 25,
+      passtd_sd: 4,
+      int_sd: 1,
+    };
+    const variance = Object.entries(weights).reduce((sum, [key, weight]) => {
+      const sd = toNumber(lowerRow[key]);
+      return Number.isFinite(sd) ? sum + (weight * sd) ** 2 : sum;
+    }, 0);
+    if (variance > 0) {
+      return roundNumber(Math.sqrt(variance));
+    }
+    return undefined;
   }
 
   function normalizePos(pos) {

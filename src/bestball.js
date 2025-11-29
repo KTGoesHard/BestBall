@@ -33,7 +33,6 @@ class BestBallTool {
 
   recommendPicks(draftState, draftContext = {}) {
     const pickNumber = this.#resolvePickNumber(draftState);
-    const pickNumber = draftState?.pickNumber ?? 1;
     const roster = draftState?.roster || {};
     const exposures = draftContext.exposures || {};
     const totalDrafts = draftContext.totalDrafts || 1;
