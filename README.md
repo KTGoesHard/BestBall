@@ -27,7 +27,6 @@ const players = [
 
 const advisor = new BestBallTool(players, {
   rosterConfig: { QB: 2, RB: 5, WR: 7, TE: 3, FLEX: 1 },
-  leagueConfig: { teams: 12, rounds: 18, draftSlot: 6, snake: true },
   adpWeight: 0.3,
   randomness: { enabled: true, stdev: 0.03, seed: 'my-draft-room' },
   targetExposure: { 'patrick-mahomes-qb': 0.18 },
@@ -35,8 +34,7 @@ const advisor = new BestBallTool(players, {
 });
 
 const draftState = {
-  round: 2,
-  draftSlot: 6,
+  pickNumber: 10,
   roster: { QB: 0, RB: 1, WR: 1, TE: 0 },
   takenPlayers: ['Christian McCaffrey'],
 };
