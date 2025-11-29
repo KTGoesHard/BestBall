@@ -1,0 +1,13 @@
+{
+  "name": "bestball",
+  "version": "1.0.0",
+  "description": "Draft helper for best ball with diversification-friendly recommendations.",
+  "main": "src/bestball.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node examples/demo.js"
+  },
+  "keywords": ["bestball", "fantasy-football", "draft"],
+  "author": "",
+  "license": "MIT"
+}
