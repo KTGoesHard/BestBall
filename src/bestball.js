@@ -15,6 +15,12 @@ class BestBallTool {
       adpWeight: options.adpWeight ?? 0.25,
       scarcityWeight: options.scarcityWeight ?? 0.6,
       exposureWeight: options.exposureWeight ?? 0.8,
+      leagueConfig: {
+        teams: options.leagueConfig?.teams ?? 12,
+        rounds: options.leagueConfig?.rounds ?? 18,
+        draftSlot: options.leagueConfig?.draftSlot ?? 1,
+        snake: options.leagueConfig?.snake ?? true,
+      },
       randomness: {
         enabled: options.randomness?.enabled ?? true,
         stdev: options.randomness?.stdev ?? 0.04,
@@ -26,6 +32,7 @@ class BestBallTool {
   }
 
   recommendPicks(draftState, draftContext = {}) {
+    const pickNumber = this.#resolvePickNumber(draftState);
     const pickNumber = draftState?.pickNumber ?? 1;
     const roster = draftState?.roster || {};
     const exposures = draftContext.exposures || {};
@@ -77,6 +84,29 @@ class BestBallTool {
     if (!adp || adp <= 0) return 0;
     const edge = (adp - pickNumber) / adp;
     return Math.min(Math.max(edge, -0.3), 0.4);
+  }
+
+  #resolvePickNumber(draftState = {}) {
+    if (Number.isFinite(draftState.pickNumber)) {
+      return Number(draftState.pickNumber);
+    }
+
+    const teams = draftState.teams ?? this.options.leagueConfig.teams;
+    const draftSlot = draftState.draftSlot ?? this.options.leagueConfig.draftSlot;
+    const round = draftState.round ?? 1;
+    const snake = draftState.snake ?? this.options.leagueConfig.snake;
+
+    const pickInRound = draftState.pickInRound ?? draftSlot;
+    const boundedPickInRound = Math.min(Math.max(1, pickInRound), teams);
+
+    if (!snake) {
+      return (round - 1) * teams + boundedPickInRound;
+    }
+
+    const isEvenRound = round % 2 === 0;
+    const normalizedPick = isEvenRound ? teams - boundedPickInRound + 1 : boundedPickInRound;
+
+    return (round - 1) * teams + normalizedPick;
   }
 
   #exposurePenalty({ player, exposures, totalDrafts }) {

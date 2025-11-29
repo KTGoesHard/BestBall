@@ -11,12 +11,14 @@ const players = [
 ];
 
 const advisor = new BestBallTool(players, {
+  leagueConfig: { teams: 12, rounds: 18, draftSlot: 4, snake: true },
   randomness: { stdev: 0.03 },
   defaultTargetExposure: 0.2,
 });
 
 const roster = { QB: 0, RB: 1, WR: 1, TE: 0 };
 const takenPlayers = ['Christian McCaffrey'];
+const draftState = { round: 2, draftSlot: 4, teams: 12, roster, takenPlayers };
 const draftState = { pickNumber: 10, roster, takenPlayers };
 
 const exposures = { 'patrick-mahomes-qb': 3, 'ja-marr-chase-wr': 4 };
