@@ -2,6 +2,9 @@
   const STORAGE_KEY = 'snake_min_v1';
   const MAX_PER_TEAM = 7;
   const STARTERS_TEMPLATE = { QB: 1, RB: 1, WRTE: 2, FLEX: 2 };
+  const LEARNING_MAX_DRAFTS = 50;
+  const LEARNING_DECAY = 0.9;
+  const LEARNING_STEP = 0.2;
   const POSITION_MAP = {
     QB: 'QB',
     RB: 'RB',
@@ -16,6 +19,17 @@
 
   const elements = {};
   const state = loadState();
+  ensureLearningState();
+
+  function ensureLearningState() {
+    state.learning = state.learning || {};
+    state.learning.playerRatings = state.learning.playerRatings || {};
+    state.learning.drafts = state.learning.drafts || [];
+  }
+
+  function defaultLearning() {
+    return { playerRatings: {}, drafts: [] };
+  }
 
   function loadState() {
     try {
@@ -29,6 +43,7 @@
       picks: [],
       pool: [],
       mapping: null,
+      learning: defaultLearning(),
     };
   }
 
@@ -120,7 +135,7 @@
 
     const firstOpen = state.picks.find((p) => !p.player);
     elements.boardStatus.textContent = firstOpen
-      ? `Next pick: #${firstOpen.overall} (R${firstOpen.round} S${firstOpen.slot})`
+      ? `Next pick #${firstOpen.overall} · R${firstOpen.round} S${firstOpen.slot}`
       : 'Draft complete';
   }
 
@@ -160,6 +175,16 @@
     elements.remainingTable.appendChild(table);
   }
 
+  function renderLogAutocomplete() {
+    if (!elements.logNameOptions) return;
+    const options = state.pool
+      .slice()
+      .sort((a, b) => (a.adp ?? 999) - (b.adp ?? 999))
+      .map((p) => `<option value="${escapeHtml(p.name)}"></option>`)
+      .join('');
+    elements.logNameOptions.innerHTML = options;
+  }
+
   function logPick(name) {
     if (!name) return;
     const remaining = remainingPlayers();
@@ -185,6 +210,53 @@
     elements.recentLog.innerHTML = recent
       .map((p) => `<li>#${p.overall} T${p.slot}: ${p.player}</li>`)
       .join('');
+  }
+
+  function getPlayerLift(name) {
+    const rating = state.learning.playerRatings[name];
+    if (!rating) return 0;
+    return Math.max(-0.25, Math.min(0.35, rating.value));
+  }
+
+  function updatePlayerRating(name, liftDelta) {
+    const current = state.learning.playerRatings[name] || { value: 0, samples: 0 };
+    const blended = current.value * LEARNING_DECAY + liftDelta * (1 - LEARNING_DECAY);
+    state.learning.playerRatings[name] = { value: blended, samples: current.samples + 1 };
+  }
+
+  function recordDraftOutcome(finalScores) {
+    const mine = finalScores.find((row) => row.team === state.settings.slot);
+    const myPicks = getMyTeamPicks();
+    if (!mine || !myPicks.length) return;
+    const baseline = 1 / state.settings.teams;
+    const lift = mine.winPct / 100 - baseline;
+    const perPlayer = lift / Math.max(1, myPicks.length);
+    myPicks.forEach((p) => updatePlayerRating(p.name, perPlayer * LEARNING_STEP));
+    state.learning.drafts.push({
+      ts: Date.now(),
+      team: state.settings.slot,
+      winPct: mine.winPct,
+      players: myPicks.map((p) => p.name),
+      baseline: baseline * 100,
+    });
+    if (state.learning.drafts.length > LEARNING_MAX_DRAFTS) {
+      state.learning.drafts = state.learning.drafts.slice(-LEARNING_MAX_DRAFTS);
+    }
+    renderMlStatus();
+    saveState();
+  }
+
+  function renderMlStatus() {
+    if (!elements.mlStatus) return;
+    const drafts = state.learning.drafts.length;
+    if (!drafts) {
+      elements.mlStatus.textContent = 'Machine learning: waiting for Final Win% to learn from drafts.';
+      return;
+    }
+    const top = Object.entries(state.learning.playerRatings || {})
+      .sort((a, b) => Math.abs(b[1].value) - Math.abs(a[1].value))[0];
+    const topText = top ? `${top[0]} (${(top[1].value * 100).toFixed(1)}% lift)` : 'building signals';
+    elements.mlStatus.textContent = `Machine learning active on ${drafts} draft${drafts > 1 ? 's' : ''}. Strongest signal: ${topText}.`;
   }
 
   function parseInput(text) {
@@ -420,6 +492,10 @@
     return Math.round(num * 100) / 100;
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function handleParsed(parsed) {
     if (!parsed) return;
     renderMapping(parsed.headers);
@@ -476,6 +552,8 @@
     renderBoard();
     renderRemaining();
     renderRecent();
+    renderLogAutocomplete();
+    renderMlStatus();
     saveState();
   }
 
@@ -497,7 +575,13 @@
 
     elements.resetAll.addEventListener('click', () => {
       localStorage.removeItem(STORAGE_KEY);
-      Object.assign(state, { settings: { teams: 3, rounds: 6, slot: 1 }, picks: [], pool: [], mapping: null });
+      Object.assign(state, {
+        settings: { teams: 3, rounds: 6, slot: 1 },
+        picks: [],
+        pool: [],
+        mapping: null,
+        learning: defaultLearning(),
+      });
       elements.pasteBox.value = '';
       normalizeSettings();
       buildBlankPicks();
@@ -575,9 +659,11 @@
     elements.pasteClear = document.getElementById('clear-paste');
     elements.selfTest = document.getElementById('self-test');
     elements.logName = document.getElementById('log-name');
+    elements.logNameOptions = document.getElementById('log-name-options');
     elements.logBtn = document.getElementById('log-btn');
     elements.undoBtn = document.getElementById('undo-btn');
     elements.recentLog = document.getElementById('recent-log');
+    elements.mlStatus = document.getElementById('ml-status');
     elements.mcSims = document.getElementById('mc-sims');
     elements.mcTop = document.getElementById('mc-top');
     elements.mcVar = document.getElementById('mc-var');
@@ -675,8 +761,8 @@
       return true;
     });
     allowed.sort((a, b) => {
-      const adjA = a.position === 'QB' ? (a.ppg || 0) * qbWeight : a.ppg || 0;
-      const adjB = b.position === 'QB' ? (b.ppg || 0) * qbWeight : b.ppg || 0;
+      const adjA = (a.position === 'QB' ? (a.ppg || 0) * qbWeight : a.ppg || 0) * (1 + getPlayerLift(a.name));
+      const adjB = (b.position === 'QB' ? (b.ppg || 0) * qbWeight : b.ppg || 0) * (1 + getPlayerLift(b.name));
       if (adjB !== adjA) return adjB - adjA;
       return (a.adp ?? 999) - (b.adp ?? 999);
     });
@@ -687,7 +773,7 @@
         shortlist = [bestQB, ...shortlist].slice(0, topN);
       }
     }
-    return shortlist;
+    return shortlist.map((p) => ({ ...p, mlLift: getPlayerLift(p.name) }));
   }
 
   function simulateDraft({ candidate, sims, useVar, qbWeight, adpGate, minQb2Round, rngSeed }) {
@@ -865,7 +951,7 @@
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Candidate', 'Pos', 'Team', 'ADP', 'Avg PPG (us)', 'Win %'].forEach((h) => {
+    ['Candidate', 'Pos', 'Team', 'ADP', 'ML lift', 'Avg PPG (us)', 'Win %'].forEach((h) => {
       const th = document.createElement('th');
       th.textContent = h;
       header.appendChild(th);
@@ -875,7 +961,15 @@
     const tbody = document.createElement('tbody');
     rows.forEach((r) => {
       const tr = document.createElement('tr');
-      [r.name, r.position, r.team || '', r.adp ?? '', r.avgPPG.toFixed(2), r.winPct.toFixed(2)].forEach((val) => {
+      [
+        r.name,
+        r.position,
+        r.team || '',
+        r.adp ?? '',
+        `${(r.mlLift * 100 || 0).toFixed(1)}%`,
+        r.avgPPG.toFixed(2),
+        r.winPct.toFixed(2),
+      ].forEach((val) => {
         const td = document.createElement('td');
         td.textContent = val;
         tr.appendChild(td);
@@ -899,6 +993,7 @@
     const teamPicks = teamPickIndicesFromState();
     autofillToSeven(teamPicks);
     const scores = simulateFinalStandings({ teamPicks, sims, useVar, qbWeight, rngSeed });
+    recordDraftOutcome(scores);
     renderFinalTable(scores);
   }
 
