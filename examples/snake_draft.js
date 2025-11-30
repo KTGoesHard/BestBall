@@ -1,8 +1,22 @@
 (() => {
   const STORAGE_KEY = 'snake_min_v1';
-  const UI_VERSION = 2;
+  const UI_VERSION = 3;
   const LAYOUT_MIN_WIDTH = 260;
   const LAYOUT_MIN_HEIGHT = 220;
+  const FREEFORM_GRID = 24;
+  const FREEFORM_GUTTER = 12;
+  const DEFAULT_LAYOUTS = {
+    'board-tab': {
+      'board-panel': { left: 0, top: 0, width: 640, height: 520 },
+      'log-panel': { left: 660, top: 0, width: 380, height: 520 },
+    },
+    'mc-tab': {
+      'mc-panel': { left: 0, top: 0, width: 760, height: 520 },
+    },
+    'final-tab': {
+      'final-panel': { left: 0, top: 0, width: 760, height: 420 },
+    },
+  };
   const MAX_PER_TEAM = 7;
   const STARTERS_TEMPLATE = { QB: 1, RB: 1, WRTE: 2, FLEX: 2 };
   const LEARNING_MAX_DRAFTS = 50;
@@ -48,6 +62,9 @@
       panel.classList.toggle('active', panel.id === tabId);
     });
     state.ui.activeTab = tabId;
+    if (document.body.classList.contains('freeform-mode')) {
+      refreshFloatingLayout(tabId);
+    }
     if (!opts.skipSave) saveState();
   }
 
@@ -61,6 +78,9 @@
   function toggleFreeform(enabled) {
     state.ui.freeform = enabled;
     document.body.classList.toggle('freeform-mode', enabled);
+    if (elements.workspaceShell) {
+      elements.workspaceShell.dataset.mode = enabled ? 'canvas' : 'docked';
+    }
     if (enabled) {
       enableFloatingLayout();
     } else {
@@ -83,22 +103,12 @@
   }
 
   function enableFloatingLayout() {
-    elements.tabPanels.forEach((tabPanel) => {
-      const canvas = tabPanel.querySelector('.workspace-grid');
-      if (!canvas) return;
-      const panels = Array.from(canvas.querySelectorAll('[data-floating]'));
-      panels.forEach((panel, idx) => {
-        ensureHandles(panel);
-        const key = panel.id || `${tabPanel.id}-panel-${idx}`;
-        panel.dataset.floatingKey = key;
-        applySavedLayout(panel, canvas, tabPanel.id, key);
-        attachDrag(panel, canvas, tabPanel.id, key);
-        attachResize(panel, canvas, tabPanel.id, key);
-      });
-    });
+    window.addEventListener('resize', onFreeformResize);
+    refreshFloatingLayout(state.ui.activeTab);
   }
 
   function disableFloatingLayout() {
+    window.removeEventListener('resize', onFreeformResize);
     elements.tabPanels.forEach((tabPanel) => {
       const panels = tabPanel.querySelectorAll('[data-floating]');
       panels.forEach((panel) => {
@@ -112,19 +122,110 @@
     });
   }
 
-  function applySavedLayout(panel, canvas, tabId, key) {
-    const canvasRect = canvas.getBoundingClientRect();
+  function refreshFloatingLayout(tabId) {
+    const tabPanel = document.getElementById(tabId);
+    if (!tabPanel) return;
+    const canvas = tabPanel.querySelector('.workspace-grid');
+    if (!canvas) return;
+    const panels = Array.from(canvas.querySelectorAll('[data-floating]'));
+    const canvasRect = measureCanvas(canvas);
+    ensureDefaultLayout(tabPanel.id, panels);
+    panels.forEach((panel, idx) => {
+      ensureHandles(panel);
+      const key = getFloatingKey(panel, tabPanel.id, idx);
+      panel.dataset.floatingKey = key;
+      applySavedLayout(panel, canvas, tabPanel.id, key, canvasRect);
+      attachDrag(panel, canvas, tabPanel.id, key);
+      attachResize(panel, canvas, tabPanel.id, key);
+    });
+    resolveOverlaps(canvas, tabPanel.id, panels, canvasRect);
+    growCanvas(canvas, panels);
+  }
+
+  function measureCanvas(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || canvas.clientWidth || canvas.offsetWidth || 1200;
+    const height = rect.height || canvas.clientHeight || canvas.offsetHeight || 900;
+    if (width && height) return { ...rect, width, height };
+    const parentRect = canvas.parentElement?.getBoundingClientRect();
+    if (parentRect?.width && parentRect?.height) return parentRect;
+    return { left: 0, top: 0, width: 1200, height: 900 };
+  }
+
+  function ensureDefaultLayout(tabId, panels) {
+    state.ui.layout[tabId] = state.ui.layout[tabId] || {};
+    const defaults = DEFAULT_LAYOUTS[tabId];
+    if (!defaults) return;
+    panels.forEach((panel, idx) => {
+      const key = getFloatingKey(panel, tabId, idx);
+      if (!state.ui.layout[tabId][key] && defaults[key]) {
+        state.ui.layout[tabId][key] = { ...defaults[key] };
+      }
+    });
+  }
+
+  function getFloatingKey(panel, tabId, idx) {
+    return panel.dataset.floatingKey || panel.id || `${tabId}-panel-${idx}`;
+  }
+
+  function applySavedLayout(panel, canvas, tabId, key, canvasRect) {
     const rect = panel.getBoundingClientRect();
     const saved = (state.ui.layout?.[tabId] || {})[key];
-    const left = clamp(saved?.left ?? rect.left - canvasRect.left, 0, Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH));
-    const top = clamp(saved?.top ?? rect.top - canvasRect.top, 0, Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT));
-    const width = clamp(saved?.width ?? rect.width, LAYOUT_MIN_WIDTH, canvasRect.width - left);
-    const height = clamp(saved?.height ?? rect.height, LAYOUT_MIN_HEIGHT, canvasRect.height - top);
+    const maxLeft = Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH - FREEFORM_GUTTER);
+    const maxTop = Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT - FREEFORM_GUTTER);
+    const left = snapToGrid(clamp(saved?.left ?? rect.left - canvasRect.left, 0, maxLeft));
+    const top = snapToGrid(clamp(saved?.top ?? rect.top - canvasRect.top, 0, maxTop));
+    const width = snapToGrid(clamp(saved?.width ?? rect.width, LAYOUT_MIN_WIDTH, Math.max(LAYOUT_MIN_WIDTH, canvasRect.width - left)));
+    const height = snapToGrid(clamp(saved?.height ?? rect.height, LAYOUT_MIN_HEIGHT, Math.max(LAYOUT_MIN_HEIGHT, canvasRect.height - top)));
     panel.style.position = 'absolute';
     panel.style.left = `${left}px`;
     panel.style.top = `${top}px`;
     panel.style.width = `${width}px`;
     panel.style.height = `${height}px`;
+  }
+
+  function resolveOverlaps(canvas, tabId, panels, canvasRect) {
+    const sorted = panels
+      .map((panel, idx) => ({
+        panel,
+        key: getFloatingKey(panel, tabId, idx),
+        left: parseFloat(panel.style.left) || 0,
+        top: parseFloat(panel.style.top) || 0,
+        width: parseFloat(panel.style.width) || panel.getBoundingClientRect().width,
+        height: parseFloat(panel.style.height) || panel.getBoundingClientRect().height,
+      }))
+      .sort((a, b) => a.top - b.top || a.left - b.left);
+
+    for (let i = 0; i < sorted.length; i += 1) {
+      for (let j = 0; j < i; j += 1) {
+        const a = sorted[i];
+        const b = sorted[j];
+        if (isOverlap(a, b)) {
+          a.top = snapToGrid(b.top + b.height + FREEFORM_GUTTER);
+          a.left = snapToGrid(clamp(a.left, 0, Math.max(0, canvasRect.width - a.width)));
+          a.panel.style.top = `${a.top}px`;
+          a.panel.style.left = `${a.left}px`;
+        }
+      }
+      persistLayout(tabId, sorted[i].key, sorted[i].panel);
+    }
+  }
+
+  function isOverlap(a, b) {
+    return !(a.left >= b.left + b.width || a.left + a.width <= b.left || a.top >= b.top + b.height || a.top + a.height <= b.top);
+  }
+
+  function growCanvas(canvas, panels) {
+    const bottom = panels.reduce((max, panel) => {
+      const top = parseFloat(panel.style.top) || 0;
+      const height = parseFloat(panel.style.height) || panel.getBoundingClientRect().height;
+      return Math.max(max, top + height);
+    }, 0);
+    canvas.style.minHeight = `${Math.max(900, bottom + FREEFORM_GUTTER * 2)}px`;
+  }
+
+  function snapToGrid(value) {
+    return Math.round(value / FREEFORM_GRID) * FREEFORM_GRID;
   }
 
   function attachDrag(panel, canvas, tabId, key) {
@@ -140,8 +241,8 @@
       const offsetY = e.clientY - rect.top;
       panel.classList.add('floating-active');
       function onMove(ev) {
-        const left = clamp(ev.clientX - canvasRect.left - offsetX, 0, Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH));
-        const top = clamp(ev.clientY - canvasRect.top - offsetY, 0, Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT));
+        const left = snapToGrid(clamp(ev.clientX - canvasRect.left - offsetX, 0, Math.max(0, canvasRect.width - LAYOUT_MIN_WIDTH)));
+        const top = snapToGrid(clamp(ev.clientY - canvasRect.top - offsetY, 0, Math.max(0, canvasRect.height - LAYOUT_MIN_HEIGHT)));
         panel.style.left = `${left}px`;
         panel.style.top = `${top}px`;
       }
@@ -150,6 +251,7 @@
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         persistLayout(tabId, key, panel);
+        growCanvas(canvas, Array.from(canvas.querySelectorAll('[data-floating]')));
       }
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
@@ -175,8 +277,8 @@
         const deltaY = ev.clientY - startY;
         const left = parseFloat(panel.style.left) || 0;
         const top = parseFloat(panel.style.top) || 0;
-        const width = clamp(startWidth + deltaX, LAYOUT_MIN_WIDTH, canvasRect.width - left);
-        const height = clamp(startHeight + deltaY, LAYOUT_MIN_HEIGHT, canvasRect.height - top);
+        const width = snapToGrid(clamp(startWidth + deltaX, LAYOUT_MIN_WIDTH, canvasRect.width - left));
+        const height = snapToGrid(clamp(startHeight + deltaY, LAYOUT_MIN_HEIGHT, canvasRect.height - top));
         panel.style.width = `${width}px`;
         panel.style.height = `${height}px`;
       }
@@ -185,11 +287,20 @@
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         persistLayout(tabId, key, panel);
+        growCanvas(canvas, Array.from(canvas.querySelectorAll('[data-floating]')));
       }
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
     panel.dataset.resizeBound = '1';
+  }
+
+  function onFreeformResize() {
+    clearTimeout(onFreeformResize._t);
+    onFreeformResize._t = setTimeout(() => {
+      if (!document.body.classList.contains('freeform-mode')) return;
+      refreshFloatingLayout(state.ui.activeTab);
+    }, 120);
   }
 
   function persistLayout(tabId, key, panel) {
@@ -769,6 +880,8 @@
         learning: defaultLearning(),
         ui: { activeTab: 'board-tab', freeform: false, layout: {}, version: UI_VERSION },
       });
+      toggleFreeform(false);
+      activateTab('board-tab', { skipSave: true });
       elements.pasteBox.value = '';
       normalizeSettings();
       buildBlankPicks();
@@ -834,6 +947,7 @@
   }
 
   function loadElements() {
+    elements.workspaceShell = document.getElementById('workspace-shell');
     elements.teams = document.getElementById('teams');
     elements.rounds = document.getElementById('rounds');
     elements.slot = document.getElementById('slot');

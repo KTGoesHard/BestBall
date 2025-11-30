@@ -62,23 +62,40 @@ h1 {
 }
 
 .page-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 18px;
-  padding: 16px 18px 24px;
-  align-items: start;
+  display: flex;
+  gap: 22px;
+  padding: 18px 20px 26px;
+  align-items: flex-start;
+  max-width: 1680px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .left-rail {
   display: grid;
   gap: 14px;
-  align-self: start;
+  position: sticky;
+  top: 84px;
+  flex: 0 0 340px;
+  max-width: 360px;
+  width: 100%;
+  min-width: 320px;
 }
 
 .workspace {
   display: grid;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-shell {
+  display: grid;
   gap: 12px;
-  align-self: start;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
 }
 
 .workspace-head {
@@ -123,8 +140,8 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 12px;
   position: sticky;
-  top: 76px;
-  z-index: 1;
+  top: 78px;
+  z-index: 2;
 }
 
 .tab {
@@ -155,6 +172,10 @@ h1 {
 
 .tab-panel.active {
   display: block;
+}
+
+.workspace-shell[data-mode='canvas'] .tab-panel {
+  position: relative;
 }
 
 .workspace-grid {
@@ -437,50 +458,53 @@ tbody tr:nth-child(even) {
   position: absolute;
   right: 10px;
   top: 10px;
-  width: 14px;
-  height: 14px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 16px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid var(--border);
   border-radius: 4px;
   cursor: move;
   display: none;
+  z-index: 2;
 }
 
 .resize-handle {
   position: absolute;
   right: 6px;
   bottom: 6px;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 4px;
   border: 1px solid var(--border);
-  background: rgba(127, 140, 255, 0.15);
+  background: rgba(127, 140, 255, 0.22);
   cursor: se-resize;
   display: none;
+  z-index: 2;
 }
 
-.freeform-mode .drag-handle,
-.freeform-mode .resize-handle {
+.workspace-shell[data-mode='canvas'] .drag-handle,
+.workspace-shell[data-mode='canvas'] .resize-handle {
   display: block;
 }
 
-.freeform-mode .workspace-grid {
+.workspace-shell[data-mode='canvas'] .workspace-grid {
   display: block;
   position: relative;
-  min-height: 900px;
-  padding: 6px;
+  min-height: 920px;
+  max-width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #0b0f1f;
+  overflow: auto;
 }
 
-.freeform-mode .tab-panel {
-  display: block;
-}
-
-.freeform-mode .tabbar {
+.workspace-shell[data-mode='canvas'] .tabbar {
   position: sticky;
-  top: 12px;
+  top: 10px;
 }
 
-.freeform-mode .panel[data-floating] {
+.workspace-shell[data-mode='canvas'] .panel[data-floating] {
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.38);
   border-color: rgba(127, 140, 255, 0.35);
 }
@@ -493,9 +517,14 @@ input[type="checkbox"] {
   accent-color: var(--accent);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   .page-grid {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  .left-rail {
+    position: static;
+    width: 100%;
+    max-width: none;
   }
   .workspace-head {
     flex-direction: column;
@@ -503,5 +532,8 @@ input[type="checkbox"] {
   }
   .workspace-grid.two-column {
     grid-template-columns: 1fr;
+  }
+  .tabbar {
+    position: static;
   }
 }
