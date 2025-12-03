@@ -3,203 +3,244 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Snake Draft Assistant</title>
+    <title>Mini Best Ball — Snake Draft Assistant</title>
     <link rel="stylesheet" href="snake_draft.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <h1>Mini Best Ball Draft Assistant</h1>
-        <div class="subtitle">Snake draft helper with autosave, sims, and DK-aware imports</div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="app-name">Mini Best Ball — Snake Draft Assistant</div>
+        <div class="muted">Single-page draft assistant with EVG sims and flexible imports.</div>
       </div>
-      <div class="top-controls">
-        <div class="field">
-          <label for="teams">Teams</label>
+      <div class="config">
+        <label class="field">
+          <span>Teams</span>
           <input type="number" id="teams" min="1" max="12" value="3" />
-        </div>
-        <div class="field">
-          <label for="rounds">Rounds</label>
+        </label>
+        <label class="field">
+          <span>Rounds</span>
           <input type="number" id="rounds" min="4" max="12" value="6" />
-        </div>
-        <div class="field">
-          <label for="slot">My Slot</label>
+        </label>
+        <label class="field">
+          <span>My Slot</span>
           <input type="number" id="slot" min="1" max="12" value="1" />
-        </div>
-        <button id="reset-all" class="secondary ghost">Reset All</button>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="reset-all" class="ghost">Reset Draft</button>
       </div>
     </header>
 
-    <main class="page-grid">
-      <section class="left-rail">
-        <div class="panel" id="import-panel">
-          <div class="panel-head">
-            <div>
-              <h2>Player Pool</h2>
-              <div class="subtle">Upload CSV / JSON here (file / paste / auto-detect)</div>
-            </div>
-            <div class="pill">DK-aware</div>
-          </div>
-          <div id="drop-zone">Drop CSV / JSON here or use the options below.</div>
-          <div class="grid-2">
-            <div>
-              <label for="file-input">Import file</label>
-              <input type="file" id="file-input" accept=".csv,.json" />
-            </div>
-            <div class="align-end">
-              <label>&nbsp;</label>
-              <button id="self-test" class="secondary">Self-Test (sample)</button>
-            </div>
-          </div>
-          <div class="stack">
-            <label for="paste-box">Paste CSV / JSON</label>
-            <textarea id="paste-box" placeholder="Paste rows or JSON here..."></textarea>
-            <div class="flex-row">
-              <button id="apply-paste">Apply Pasted</button>
-              <button id="clear-paste" class="secondary">Clear</button>
-            </div>
-          </div>
-          <div class="mapping">
-            <div class="section-label">Column Mapping (auto-detect)</div>
-            <div id="column-mapping"></div>
-          </div>
-          <div class="status" id="import-status">No pool loaded.</div>
-        </div>
+    <nav class="tabbar" role="tablist">
+      <button class="tab active" data-tab="draft-tab">Draft</button>
+      <button class="tab" data-tab="pool-tab">Player Pool</button>
+      <button class="tab" data-tab="sims-tab">Simulations</button>
+      <button class="tab" data-tab="overview-tab">Team Overview</button>
+    </nav>
 
-        <div class="panel">
-          <div class="panel-head">
-            <h2>Remaining Board</h2>
-            <div class="subtle">Top 160 by ADP</div>
+    <main class="page">
+      <section class="tab-panel active" id="draft-tab" data-tab-panel>
+        <div class="grid three">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">On the Clock</p>
+                <h2 id="current-pick-label">Pick —</h2>
+                <div class="muted" id="current-pick-team">Team —</div>
+              </div>
+              <div class="pill" id="next-pick-sequence">Waiting for draft data</div>
+            </div>
+            <div class="candidate-list" id="candidate-list"></div>
+            <div class="section">
+              <label for="log-name">Search player…</label>
+              <div class="inline-form">
+                <input id="log-name" placeholder="Start typing a player" list="log-name-options" />
+                <button id="log-btn">Draft</button>
+              </div>
+              <datalist id="log-name-options"></datalist>
+              <div class="inline-form minor">
+                <button id="undo-btn" class="ghost">Undo last</button>
+                <button id="run-mc-inline" class="secondary">Run EVG now</button>
+              </div>
+            </div>
           </div>
-          <div class="table-scroll" id="remaining-table"></div>
+
+          <div class="panel board-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Draft Board</p>
+                <div class="muted" id="board-status">Awaiting picks…</div>
+              </div>
+              <div class="pill" id="board-upcoming">Next picks</div>
+            </div>
+            <div class="table-scroll" id="board-table"></div>
+          </div>
+
+          <div class="panel roster-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">My roster</p>
+                <h2>Roster & Needs</h2>
+              </div>
+              <div class="pill" id="roster-summary">0 / 7 drafted</div>
+            </div>
+            <div id="roster-list" class="stack"></div>
+            <div class="section-label">Positional needs</div>
+            <div id="needs-table" class="needs-table"></div>
+            <div class="section-label">Recent picks</div>
+            <ul id="recent-log" class="recent-log"></ul>
+          </div>
         </div>
       </section>
 
-      <section class="workspace">
-        <div class="workspace-head panel">
-          <div>
-            <h2>Workspace</h2>
-            <div class="subtle">Docked by default to avoid overlaps; canvas mode is optional.</div>
-            <div class="status" id="save-status">State autosaves to your browser.</div>
+      <section class="tab-panel" id="pool-tab" data-tab-panel>
+        <div class="grid two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Player Data</p>
+                <h2>Import & Mapping</h2>
+                <div class="muted">Upload CSV/JSON, paste rows, or load the sample.</div>
+              </div>
+            </div>
+            <div id="drop-zone" class="dropzone">Drop CSV / JSON here or use the options below.</div>
+            <div class="grid two">
+              <label class="field">
+                <span>Import file</span>
+                <input type="file" id="file-input" accept=".csv,.json" />
+              </label>
+              <div class="align-end">
+                <label>&nbsp;</label>
+                <button id="self-test" class="secondary">Self-Test (sample)</button>
+              </div>
+            </div>
+            <div class="section">
+              <label for="paste-box">Paste CSV / JSON</label>
+              <textarea id="paste-box" placeholder="Paste rows or JSON here..."></textarea>
+              <div class="inline-form minor">
+                <button id="apply-paste">Apply Pasted</button>
+                <button id="clear-paste" class="ghost">Clear</button>
+              </div>
+            </div>
+            <div class="mapping">
+              <div class="section-label">Column Mapping (auto-detect)</div>
+              <div id="column-mapping"></div>
+            </div>
+            <div class="status" id="import-status">No pool loaded.</div>
           </div>
-          <div class="workspace-toggles">
-            <label class="toggle">
-              <input type="checkbox" id="freeform-toggle" />
-              <span>Canvas mode (drag + resize)</span>
-            </label>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Player Pool</p>
+                <h2>Available Players</h2>
+              </div>
+              <div class="inline-form filters">
+                <div class="chip-group" id="pos-filters">
+                  <button data-pos="ALL" class="chip active">All</button>
+                  <button data-pos="QB" class="chip">QB</button>
+                  <button data-pos="RB" class="chip">RB</button>
+                  <button data-pos="WR" class="chip">WR</button>
+                  <button data-pos="TE" class="chip">TE</button>
+                  <button data-pos="FLEX" class="chip">FLEX</button>
+                </div>
+                <input id="pool-search" placeholder="Search players" />
+              </div>
+            </div>
+            <div class="table-scroll" id="remaining-table"></div>
           </div>
         </div>
+      </section>
 
-        <div class="workspace-shell" id="workspace-shell" data-mode="docked">
-          <div class="tabbar" role="tablist">
-            <button class="tab active" data-tab="board-tab">Board & Log</button>
-            <button class="tab" data-tab="mc-tab">Win% Sims</button>
-            <button class="tab" data-tab="final-tab">Final Standings</button>
+      <section class="tab-panel" id="sims-tab" data-tab-panel>
+        <div class="grid two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Current Pick – EVG</p>
+                <h2>Run EVG for Current Pick</h2>
+              </div>
+            </div>
+            <div class="grid three controls">
+              <label class="field">
+                <span>EVG sims</span>
+                <input type="number" id="mc-sims" value="800" min="50" max="20000" />
+              </label>
+              <label class="field">
+                <span>Top candidates</span>
+                <input type="number" id="mc-top" value="8" min="1" max="20" />
+              </label>
+              <label class="field">
+                <span>QB gate round</span>
+                <input type="number" id="qb2-round" value="6" min="1" max="18" />
+              </label>
+              <label class="field">
+                <span>QB weight</span>
+                <input type="number" id="qb-weight" value="0.85" min="0.5" max="1" step="0.05" />
+              </label>
+              <label class="field">
+                <span>ADP gate (picks)</span>
+                <input type="number" id="adp-gate" value="16" min="0" max="40" />
+              </label>
+              <label class="checkbox field">
+                <input type="checkbox" id="mc-var" checked />
+                <span>Enable variance</span>
+              </label>
+            </div>
+            <div class="inline-form minor">
+              <button id="run-mc">Run EVG for current pick</button>
+              <button id="clear-mc" class="ghost">Clear results</button>
+            </div>
+            <div class="status" id="mc-status">Awaiting pool + draft state.</div>
+            <div class="table-scroll" id="mc-table"></div>
           </div>
 
-          <div class="tab-panels">
-            <div class="tab-panel active" id="board-tab" data-tab-panel>
-              <div class="workspace-grid two-column">
-                <div class="panel" id="board-panel" data-floating>
-                  <div class="panel-head">
-                    <h2>Draft Board</h2>
-                    <div class="status" id="board-status"></div>
-                  </div>
-                  <div class="table-scroll" id="board-table"></div>
-                </div>
-                <div class="panel" id="log-panel" data-floating>
-                  <div class="panel-head">
-                    <h2>Log Picks</h2>
-                    <div class="subtle">Type or pick from the list</div>
-                  </div>
-                  <div class="stack">
-                    <label for="log-name">Name</label>
-                    <div class="flex-row">
-                      <input id="log-name" placeholder="Start typing a player" list="log-name-options" />
-                      <button id="log-btn">Log Pick</button>
-                    </div>
-                    <datalist id="log-name-options"></datalist>
-                  </div>
-                  <div class="flex-row">
-                    <button id="undo-btn" class="secondary">Undo Last</button>
-                  </div>
-                  <div class="small" id="ml-status">Machine learning: waiting for Final Win% to learn from drafts.</div>
-                  <div class="recent">
-                    <div class="section-label">Recent</div>
-                    <ul id="recent-log"></ul>
-                  </div>
-                </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Season Sims – All Teams</p>
+                <h2>Final Win% (All Teams)</h2>
               </div>
             </div>
+            <div class="grid two controls">
+              <label class="field">
+                <span>EVG sims</span>
+                <input type="number" id="final-sims" value="2000" min="100" max="50000" />
+              </label>
+              <label class="checkbox field">
+                <input type="checkbox" id="final-var" checked />
+                <span>Include variance</span>
+              </label>
+            </div>
+            <div class="inline-form minor">
+              <button id="run-final">Run Final Win%</button>
+              <button id="clear-final" class="ghost">Clear results</button>
+            </div>
+            <div class="status" id="final-status">Awaiting pool + picks.</div>
+            <div class="table-scroll" id="final-table"></div>
+          </div>
+        </div>
+      </section>
 
-            <div class="tab-panel" id="mc-tab" data-tab-panel>
-              <div class="workspace-grid">
-                <div class="panel" id="mc-panel" data-floating>
-                  <div class="panel-head">
-                    <h2>Win% — Current Pick</h2>
-                    <div class="subtle">EVG sims + shortlist controls</div>
-                  </div>
-                  <div class="grid-3">
-                    <div>
-                      <label for="mc-sims">EVG sims</label>
-                      <input type="number" id="mc-sims" value="800" min="50" max="20000" />
-                    </div>
-                    <div>
-                      <label for="mc-top">Top candidates</label>
-                      <input type="number" id="mc-top" value="8" min="1" max="20" />
-                    </div>
-                    <div>
-                      <label for="mc-var">Variance</label>
-                      <div class="checkbox-row"><input type="checkbox" id="mc-var" checked /> enable</div>
-                    </div>
-                    <div>
-                      <label for="qb-weight">QB weight</label>
-                      <input type="number" id="qb-weight" value="0.85" min="0.5" max="1" step="0.05" />
-                    </div>
-                    <div>
-                      <label for="adp-gate">ADP gate (picks)</label>
-                      <input type="number" id="adp-gate" value="16" min="0" max="40" />
-                    </div>
-                    <div>
-                      <label for="qb2-round">Min round for QB2</label>
-                      <input type="number" id="qb2-round" value="6" min="1" max="18" />
-                    </div>
-                  </div>
-                  <div class="button-row">
-                    <button id="run-mc">Run Win% Now</button>
-                    <button id="clear-mc" class="secondary">Clear results</button>
-                  </div>
-                  <div class="status" id="mc-status">Awaiting pool + draft state.</div>
-                  <div class="table-scroll" id="mc-table"></div>
-                </div>
+      <section class="tab-panel" id="overview-tab" data-tab-panel>
+        <div class="grid two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Teams</p>
+                <h2>Team List</h2>
               </div>
             </div>
-
-            <div class="tab-panel" id="final-tab" data-tab-panel>
-              <div class="workspace-grid">
-                <div class="panel" id="final-panel" data-floating>
-                  <div class="panel-head">
-                    <h2>Final Win% — All Teams</h2>
-                    <div class="subtle">EVG sims per roster</div>
-                  </div>
-                  <div class="grid-2">
-                    <div>
-                      <label for="final-sims">EVG sims</label>
-                      <input type="number" id="final-sims" value="2000" min="100" max="50000" />
-                    </div>
-                    <div>
-                      <label for="final-var">Variance</label>
-                      <div class="checkbox-row"><input type="checkbox" id="final-var" checked /> enable</div>
-                    </div>
-                  </div>
-                  <div class="button-row">
-                    <button id="run-final">Run Final Win%</button>
-                    <button id="clear-final" class="secondary">Clear results</button>
-                  </div>
-                  <div class="status" id="final-status">Awaiting pool + picks.</div>
-                  <div class="table-scroll" id="final-table"></div>
-                </div>
+            <ul id="team-list" class="team-list"></ul>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Roster</p>
+                <h2 id="team-detail-title">Team details</h2>
               </div>
             </div>
+            <div id="team-detail-body" class="stack"></div>
           </div>
         </div>
       </section>
